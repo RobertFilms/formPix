@@ -976,6 +976,9 @@ socket.on('connect', () => {
 	// Set the connected flag to true
 	connected = true
 
+	// Get active class from the api key
+	socket.emit('getActiveClass', config.api);
+
 	// Display the board with the IP address, white color, black background, and true for the clear flag
 	let display = displayBoard(config.formbarUrl.split('://')[1], 0xFFFFFF, 0x000000)
 	if (!display) return
@@ -991,9 +994,6 @@ socket.on('setClass', (userClassId) => {
 	if (userClassId == null) {
 		// Clear the bar
 		fill(0x000000, 0, config.barPixels)
-
-		// Get active class from the api key
-		socket.emit('getActiveClass', config.api);
 
 		// Display the board with the specified parameters
 		let display = displayBoard(config.formbarUrl.split('://')[1], 0xFFFFFF, 0x000000)
