@@ -9,7 +9,7 @@ export default {
   output: {
     file: 'formpixbrowser.js',
     format: 'umd',          // or 'iife' for direct <script> usage
-    name: 'formPixAPI',      // global variable name in browser
+    name: 'formpix',      // global variable name in browser
   },
   plugins: [resolve(), commonjs()]
 };

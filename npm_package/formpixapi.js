@@ -16,7 +16,7 @@ let reqOptions =
 };
 
 function sendCommand(command, params, reqOptions) {
-	fetch(`${FORM_PIX_URL}/api/${endpoint}?${params}`, reqOptions)
+	fetch(`${FORM_PIX_URL}/api/${command}?${params}`, reqOptions)
 		.then((response) => {
 			// Convert received data to JSON
 			return response.json();

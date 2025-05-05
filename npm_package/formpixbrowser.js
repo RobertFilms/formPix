@@ -1,7 +1,7 @@
 (function (global, factory) {
 	typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
 	typeof define === 'function' && define.amd ? define(['exports'], factory) :
-	(global = typeof globalThis !== 'undefined' ? globalThis : global || self, factory(global.formPixAPI = {}));
+	(global = typeof globalThis !== 'undefined' ? globalThis : global || self, factory(global.formpix = {}));
 })(this, (function (exports) { 'use strict';
 
 	var FORM_PIX_URL = 'http://localhost:3000';
@@ -22,7 +22,7 @@
 	};
 
 	function sendCommand(command, params, reqOptions) {
-		fetch(`${FORM_PIX_URL}/api/${endpoint}?${params}`, reqOptions)
+		fetch(`${FORM_PIX_URL}/api/${command}?${params}`, reqOptions)
 			.then((response) => {
 				// Convert received data to JSON
 				return response.json();
