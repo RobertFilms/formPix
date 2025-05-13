@@ -24,8 +24,6 @@ function login(url, key) {
 
 
 function sendCommand(command, params, reqOptions) {
-	console.log(reqOptions.headers);
-
 	fetch(`${FORM_PIX_URL}/api/${command}?${params}`, reqOptions)
 		.then((response) => {
 			// Convert received data to JSON
