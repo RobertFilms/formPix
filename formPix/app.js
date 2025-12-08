@@ -12,6 +12,11 @@ if (!fs.existsSync('bgm')) {
 	fs.mkdirSync('bgm')
 }
 
+// If the sfx folder does not exist, create it
+if (!fs.existsSync('sfx')) {
+	fs.mkdirSync('sfx')
+}
+
 // Constants
 const PIXELS_PER_LETTER = 5
 const BOARD_WIDTH = 32

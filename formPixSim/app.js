@@ -13,6 +13,11 @@ if (!fs.existsSync('bgm')) {
 	fs.mkdirSync('bgm')
 }
 
+// If the sfx folder does not exist, create it
+if (!fs.existsSync('sfx')) {
+	fs.mkdirSync('sfx')
+}
+
 // Setup
 const app = express()
 const httpServer = http.createServer(app)
