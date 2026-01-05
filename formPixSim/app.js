@@ -10,7 +10,12 @@ const { letters } = require('../letters.js')
 
 // If the bgm folder does not exist, create it
 if (!fs.existsSync('bgm')) {
-    fs.mkdirSync('bgm')
+	fs.mkdirSync('bgm')
+}
+
+// If the sfx folder does not exist, create it
+if (!fs.existsSync('sfx')) {
+	fs.mkdirSync('sfx')
 }
 
 // Setup
@@ -68,15 +73,7 @@ const ws281x = {
 const PIXELS_PER_LETTER = 5
 const BOARD_WIDTH = 32
 const BOARD_HEIGHT = 8
-const END_POINT_PERMISSIONS = {
-	'/api/fill': 'lights',
-	'/api/gradient': 'lights',
-	'/api/setPixel': 'lights',
-	'/api/setPixels': 'lights',
-	'/api/say': 'lights',
-	'/api/getSounds': 'sounds',
-	'/api/playSound': 'sounds'
-}
+const REQUIRED_PERMISSION = 'auxiliary'
 
 const maxPixels = config.barPixels + config.boards * BOARD_WIDTH * BOARD_HEIGHT
 // formPix end
@@ -462,7 +459,6 @@ function displayBoard(string, textColor, backgroundColor, startColumn = 0, endCo
 		}
 	} else {
 		// If the board pixels don't fit on the board
-
 		// Add 2 spaces to the beginning of the board pixels
 		for (let i = 0; i < 2 * 6 + 1; i++) {
 			boardPixels.unshift([0, 0, 0, 0, 0, 0, 0, 0]);
@@ -591,12 +587,7 @@ app.use(async (req, res, next) => {
 			return
 		}
 
-		if (!END_POINT_PERMISSIONS[urlPath]) {
-			res.status(404).json({ error: `The endpoint ${urlPath} does not exist in the permissions` })
-			return
-		}
-
-		let response = await fetch(`${config.formbarUrl}/api/apiPermissionCheck?api=${apiKey}&permissionType=${END_POINT_PERMISSIONS[urlPath]}&classId=${classId}`, {
+		let response = await fetch(`${config.formbarUrl}/api/apiPermissionCheck?api=${apiKey}&permissionType=${REQUIRED_PERMISSION}&classId=${classId}`, {
 			method: 'GET',
 			headers: {
 				api: config.api
@@ -905,7 +896,7 @@ app.post('/api/say', (req, res) => {
 	}
 })
 
-app.post('/api/getSounds', (req, res) => {
+app.get('/api/getSounds', (req, res) => {
 	try {
 		let type = req.query.type
 
@@ -1044,7 +1035,7 @@ socket.on('setClass', (userClassId) => {
 
 socket.on('classUpdate', (classroomData) => {
 	const newPollData = classroomData.poll
-    let pixelsPerStudent
+	let pixelsPerStudent
 	let text = ''
 	let pollText = 'Poll'
 	let pollResponses = 0
@@ -1068,6 +1059,17 @@ socket.on('classUpdate', (classroomData) => {
 		return
 	}
 
+	// Normalize responses to array format for consistent iteration
+	const getResponsesArray = () => {
+		if (Array.isArray(newPollData.responses)) {
+			return newPollData.responses
+		} else {
+			return Object.values(newPollData.responses)
+		}
+	}
+
+	const responsesArray = getResponsesArray()
+
 	// Count total poll responses
 	for (let poll of Object.values(newPollData.responses)) {
 		pollResponses += poll.responses
@@ -1089,7 +1091,13 @@ socket.on('classUpdate', (classroomData) => {
 			if (newPollData.prompt == 'Thumbs?') {
 				fill(0x000000, config.barPixels)
 
-				if (newPollData.responses.Up.responses == newPollData.totalResponders) {
+				// Helper function to find response by answer text
+				const findResponse = (answerText) => {
+					return responsesArray.find(r => r.answer === answerText)
+				}
+
+				const upResponses = findResponse('Up')
+				if (upResponses && upResponses.responses == newPollData.totalResponders) {
 					gradient(0x0000FF, 0xFF0000, 0, config.barPixels)
 					let display = displayBoard('Max Gamer', 0x00FF00, 0x000000)
 					if (!display) return
@@ -1099,7 +1107,10 @@ socket.on('classUpdate', (classroomData) => {
 					specialDisplay = true
 
 					return
-				} else if (newPollData.responses.Wiggle.responses == newPollData.totalResponders) {
+				}
+
+				const wiggleResponse = findResponse('Wiggle')
+				if (wiggleResponse && wiggleResponse.responses == newPollData.totalResponders) {
 					player.play('./sfx/bruh.wav')
 
 					let text = [
@@ -1114,7 +1125,10 @@ socket.on('classUpdate', (classroomData) => {
 					boardIntervals.push(display)
 
 					specialDisplay = true
-				} else if (newPollData.responses.Down.responses == newPollData.totalResponders) {
+				}
+
+				const downResponse = findResponse('Down')
+				if (downResponse && downResponse.responses == newPollData.totalResponders) {
 					player.play('./sfx/wompwomp.wav')
 					let display = displayBoard('Git Gud', 0xFF0000, 0x000000)
 					if (!display) return
@@ -1142,10 +1156,10 @@ socket.on('classUpdate', (classroomData) => {
 		// Calculate pixels per response, considering non-empty polls
 		if (newPollData.multiRes) {
 			if (newPollData.totalResponders <= 0) pixelsPerStudent = 0
-			else pixelsPerStudent = Math.floor((config.barPixels - nonEmptyPolls) / totalResponses / newPollData.totalResponders) - 1
+			else pixelsPerStudent = Math.ceil((config.barPixels - nonEmptyPolls) / totalResponses / newPollData.totalResponders)
 		} else {
 			if (newPollData.totalResponders <= 0) pixelsPerStudent = 0
-			else pixelsPerStudent = Math.floor((config.barPixels - nonEmptyPolls) / newPollData.totalResponders) - 1
+			else pixelsPerStudent = Math.ceil((config.barPixels - nonEmptyPolls) / newPollData.totalResponders)
 		}
 
 		// Add polls to the display
@@ -1167,7 +1181,6 @@ socket.on('classUpdate', (classroomData) => {
 					pollNumber < nonEmptyPolls
 				) {
 					pixels[currentPixel] = 0xFF0080
-					currentPixel++
 				}
 			}
 
