@@ -83,11 +83,13 @@ function handleSetClass(socket, boardIntervals) {
 			socket.emit('vbTimer')
 			if (!state.classRefreshed) {
 				state.classRefreshed = true;
+
+				logger.info(`Class update received - New class ID: ${userClassId}`);
+				
 				handleRequestClassUpdate(socket)();
 			}
 		}
-		
-		logger.info(`Class update received - New class ID: ${userClassId}`);
+
 		state.classId = userClassId;
 	}
 }
