@@ -5,6 +5,7 @@
 const { fill, gradient } = require('../utils/pixelOps');
 const { displayBoard, getStringColumnLength } = require('../utils/displayUtils');
 const state = require('../state');
+const logger = require('../utils/logger');
 
 
 /**
@@ -70,7 +71,9 @@ function handleSetClass(socket, boardIntervals) {
 			const { pixels, config, ws281x } = state;
 			fill(pixels, 0x000000, 0, config.barPixels)
 
-			let display = displayBoard(pixels, config.formbarUrl.split('://')[1], 0xFFFFFF, 0x000000, config, boardIntervals, ws281x)
+			logger.info('No active class - cleared display');
+
+			let display = displayBoard(pixels, config.formbarUrl.split('://')[1], 0xFFFFFF, 0x000000, config, boardIntervals, ws281x, 0, null, 100)
 			if (!display) return
 			boardIntervals.push(display)
 
@@ -83,6 +86,8 @@ function handleSetClass(socket, boardIntervals) {
 				handleRequestClassUpdate(socket)();
 			}
 		}
+		
+		logger.info(`Class update received - New class ID: ${userClassId}`);
 		state.classId = userClassId;
 	}
 }
