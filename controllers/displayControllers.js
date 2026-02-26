@@ -1,103 +1,102 @@
 /**
- * Socket connection handlers
+ * Controllers for display and text routes
  */
 
-const { fill, gradient } = require('../utils/pixelOps');
-const { displayBoard, getStringColumnLength } = require('../utils/displayUtils');
-const state = require('../state');
 const logger = require('../utils/logger');
-
-
-/**
- * Handle connection error
- */
-function handleConnectError(socket, boardIntervals) {
-	return (error) => {
-		if (error.message == 'xhr poll error') console.log('no connection');
-		else console.log(error.message);
-
-		state.connected = false
-
-		boardIntervals = boardIntervals.filter(boardInterval => {
-			clearInterval(boardInterval.interval);
-			return false
-		})
-
-		const { pixels, config, ws281x } = state;
-		fill(pixels, 0x000000)
-		ws281x.render()
-
-		setTimeout(() => {
-			socket.connect()
-		}, 5000)
-	}
-}
+const { textToHexColor } = require('../utils/colorUtils');
+const { displayBoard } = require('../utils/displayUtils');
+const { text } = require('express');
 
 /**
- * Handle connect
+ * POST /api/say - Display text on the LED board
  */
-function handleConnect(socket, boardIntervals) {
-	return () => {
+async function sayController(req, res) {
+	try {
+		logger.info('API Call: /api/say', { query: req.query });
 
-		state.connected = true
+		const state = require('../state');
+		const { pixels, config, boardIntervals, ws281x } = state;
 
-		socket.emit('getActiveClass', state.config.api);
+		let { text, textColor, backgroundColor, scroll } = req.query;
 
-		const { pixels, config, ws281x } = state;
-		let display = displayBoard(pixels, config.formbarUrl.split('://')[1], 0xFFFFFF, 0x000000, config, boardIntervals, ws281x, 0, null, 100)
-		if (!display) return
-		boardIntervals.push(display)	
-	// Set timestamp for default message display
-	state.lastDisplayUpdate = new Date().toISOString();	}
-}
-
-/**
- * Request active class update
- */
-function handleRequestClassUpdate(socket) {
-	return () => {
-		socket.emit('getActiveClass', state.config.api);
-	}
-}
-
-
-/**
- * Handle set class
- */
-function handleSetClass(socket, boardIntervals) {
-	return (userClassId) => {
-		state.connected = true
-
-		if (userClassId == null) {
-			const { pixels, config, ws281x } = state;
-			fill(pixels, 0x000000, 0, config.barPixels)
-
-			logger.info('No active class - cleared display');
-
-			let display = displayBoard(pixels, config.formbarUrl.split('://')[1], 0xFFFFFF, 0x000000, config, boardIntervals, ws281x, 0, null, 100)
-			if (!display) return
-			boardIntervals.push(display)
-
-			ws281x.render()
-		} else {
-			socket.emit('classUpdate')
-			socket.emit('vbTimer')
-			if (!state.classRefreshed) {
-				state.classRefreshed = true;
-
-				logger.info(`Class update received - New class ID: ${userClassId}`);
-				
-				handleRequestClassUpdate(socket)();
-			}
+		if (!text) {
+			res.status(400).json({ source: 'Formpix', error: 'You did not provide any text' })
+			return
+		}
+		if (!textColor) {
+			textColor = '#FFFFFF' // default to white
+		}
+		if (!backgroundColor) {
+			backgroundColor = '#000000' // default to black
 		}
 
-		state.classId = userClassId;
+		textColor = textToHexColor(textColor)
+		backgroundColor = textToHexColor(backgroundColor)
+
+		if (typeof textColor == 'string') {
+			res.status(400).json({ source: 'Formpix', error: textColor })
+			return
+		}
+		if (textColor instanceof Error) throw textColor
+		if (typeof backgroundColor == 'string') {
+			res.status(400).json({ source: 'Formpix', error: backgroundColor })
+			return
+		}
+		if (backgroundColor instanceof Error) throw backgroundColor
+
+		let display = displayBoard(pixels, text, textColor, backgroundColor, config, boardIntervals, ws281x, 0, null, scroll ? parseInt(scroll) : 100)
+
+		if (!display) {
+			res.status(500).json({ source: 'Formpix', error: 'There was a server error try again' })
+			return
+		}
+		boardIntervals.push(display)
+
+		// Store the current display message
+		state.currentDisplayMessage = text;	state.lastDisplayUpdate = new Date().toISOString();
+		res.status(200).json({ message: 'ok' })
+	} catch (err) {
+		console.error('Error in sayController:', err);
+		res.status(500).json({ source: 'Formpix', error: 'There was a server error try again' })
+	}
+}
+
+/**
+ * GET /api/getDisplay - Get the current message displayed on the LED board
+ */
+async function getDisplayController(req, res) {
+	try {
+		logger.info('API Call: /api/getDisplay');
+
+		const state = require('../state');
+
+		// Get default message (formbar URL without protocol)
+		const defaultMessage = state.config.formbarUrl ? state.config.formbarUrl.split('://')[1] : '';
+
+		const displayInfo = {
+			message: state.currentDisplayMessage || defaultMessage,
+			textColor: state.config.textColor || '#FFFFFF',
+			backgroundColor: state.config.backgroundColor || '#000000',
+			scroll: state.config.scroll || 100,
+			textLength: state.currentDisplayMessage ? state.currentDisplayMessage.length : 0,
+			isActive: !!state.currentDisplayMessage,
+			timestamp: state.lastDisplayUpdate || null,
+			brightness: state.config.brightness || 100,
+			isScrolling: state.config.scroll && state.currentDisplayMessage && state.currentDisplayMessage.length > (state.config.width / 6) // approximate char width
+		};
+
+		res.status(200).json({
+			source: 'Formpix',
+			display: displayInfo
+		});
+
+	} catch (err) {
+		console.error('Error in getDisplayController:', err);
+		res.status(500).json({ source: 'Formpix', error: 'There was a server error try again' });
 	}
 }
 
 module.exports = {
-	handleConnectError,
-	handleConnect,
-	handleSetClass,
-	handleRequestClassUpdate
+	sayController,
+	getDisplayController
 };
